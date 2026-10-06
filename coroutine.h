@@ -292,22 +292,23 @@ Coroutine *CoroutineNewStackSize(CoroutineFunc entry_point, void *userdata, size
   if (!routine)
     return NULL;
 
-  size_t aligned_stack_size = (stack_size + 4096 - 1) & ~(4096 - 1);
+  size_t page_size = sysconf(_SC_PAGESIZE);
+  size_t aligned_stack_size = (stack_size + page_size - 1) & ~(page_size - 1);
   routine->stack = mmap(NULL,
-                        aligned_stack_size + 4096, PROT_READ | PROT_WRITE,
+                        aligned_stack_size + page_size, PROT_READ | PROT_WRITE,
                         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
   if (routine->stack == MAP_FAILED) {
     free(routine);
     return NULL;
   }
-  if (mprotect(routine->stack, 4096, PROT_NONE) != 0) {
-    munmap(routine->stack, aligned_stack_size + 4096);
+  if (mprotect(routine->stack, page_size, PROT_NONE) != 0) {
+    munmap(routine->stack, aligned_stack_size + page_size);
     free(routine);
     return NULL;
   }
 
-  routine->stack += 4096;
+  routine->stack += page_size;
   routine->stack_size = aligned_stack_size;
 
   if (userdata_size > 0) {
@@ -364,8 +365,10 @@ void CoroutineYieldValue(Coroutine *routine, void *value, size_t size) {
 }
 
 void CoroutineDestroy(Coroutine *routine) {
-  if (routine->stack)
-    munmap(routine->stack - 4096, routine->stack_size + 4096);
+  if (routine->stack) {
+    size_t page_size = sysconf(_SC_PAGESIZE);
+    munmap(routine->stack - page_size, routine->stack_size + page_size);
+  }
 
   if (routine->yield_dest)
     free(routine->yield_dest);
