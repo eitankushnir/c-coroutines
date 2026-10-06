@@ -1,6 +1,7 @@
 #ifndef COROUTINE_H_
 #define COROUTINE_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@ void CoroutineYield(Coroutine *routine);
 void CoroutineYieldValue(Coroutine *routine, void *value, size_t size);
 void CoroutineTerminate(Coroutine *cr);
 void CoroutineDestroy(Coroutine *routine);
+bool CoroutineIsAlive(Coroutine *routine);
 
 #define GET_16TH_ARG_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, NAME, ...) NAME
 #define DISPATCH_NAME_(macro, ...)                              \
@@ -98,6 +100,9 @@ void CoroutineDestroy(Coroutine *routine);
 
 #define coroutine_destroy(name) \
   CoroutineDestroy(name##_routine_)
+
+#define coroutine_is_alive(name) \
+  CoroutineIsAlive(name##_routine_)
 
 void *make_context(void *stack_bottom, size_t stack_size, Coroutine *routine);
 
@@ -377,6 +382,10 @@ void CoroutineDestroy(Coroutine *routine) {
     free(routine->userdata);
 
   free(routine);
+}
+
+bool CoroutineIsAlive(Coroutine *routine) {
+  return routine->state != CR_DEAD;
 }
 
 static uint64_t get_current_time_ms_(void) {
