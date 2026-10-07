@@ -1,5 +1,5 @@
 # Coroutines For C - Single Threaded Concurrency
-Concurrency with no extra threads and kernel context switches.
+Concurrency with no extra threads and kernel context switches. Linux only (probably)
 
 ## Features 
 * New 'keywords' - `coroutine`, `yield`, `coroutine_spawn`, etc...
