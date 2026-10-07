@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -157,6 +158,7 @@ void CoroutineYieldEvent(Coroutine *cr, int fd, uint32_t events);
 
 ssize_t CoroutineRead(Coroutine *cr, int fd, void *buf, size_t size);
 ssize_t CoroutineWrite(Coroutine *cr, int fd, const void *buf, size_t count);
+int CoroutineAccept(Coroutine *cr, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
 #define setup_coroutines()              \
   Coroutine *routine = MainCoroutine(); \
@@ -203,6 +205,9 @@ ssize_t CoroutineWrite(Coroutine *cr, int fd, const void *buf, size_t count);
 
 #define cr_write(fd, buf, count) \
   CoroutineWrite(routine, fd, buf, count)
+
+#define cr_accept(sockfd, addr, addrlen) \
+  CoroutineAccept(routine, sockfd, addr, addrlen)
 
 int make_nonblocking(int fd);
 
@@ -268,6 +273,14 @@ void *make_context(void *stack_bottom, size_t stack_size, Coroutine *routine) {
   return (void *)stack;
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+
 __attribute__((naked)) void swap_context(void **from, void *to) {
   // %rdi - will have the address into which current %rsp will be put in
   // %rsi - will house the address of the new stack.
@@ -291,6 +304,12 @@ __attribute__((naked)) void swap_context(void **from, void *to) {
       "popq %rbp\n\t"
       "ret\n\t");
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 Coroutine *CoroutineNewStackSize(CoroutineFunc entry_point, void *userdata, size_t userdata_size, size_t stack_size) {
   Coroutine *routine = calloc(1, sizeof(Coroutine));
@@ -633,6 +652,21 @@ ssize_t CoroutineWrite(Coroutine *cr, int fd, const void *buf, size_t count) {
   }
 
   return written;
+}
+
+int CoroutineAccept(Coroutine *cr, int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+  while (1) {
+    int sock = accept(sockfd, addr, addrlen);
+    if (sock >= 0)
+      return sock;
+
+    if (sock < 0 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
+      CoroutineYieldEvent(cr, sockfd, EPOLLIN);
+      continue;
+    }
+
+    return -1;
+  }
 }
 
 int make_nonblocking(int fd) {
