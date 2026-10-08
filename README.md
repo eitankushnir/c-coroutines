@@ -80,9 +80,12 @@ A Coroutine runs until it decides to yield control back to the scheduler. A yiel
 * `yield_sleep(millis)` macro - pauses execution and will resume to run only after at least `millis` milliseconds have passed.
 * `cr_read` / `cr_write` / Other I/O opertations - Tries to perform the operation. Instead of blocking yields until operation can be completed. **Does not block program**
 
+
+
 ## Using Unscheduled Coroutines
 Coroutines can also be using in a caller/callee way. Instead of making them seperates tasks, coroutines are functions that can pause and resume execution.  
 We must first initialize a coroutine using `coroutine_init`. This is when we pass in the arguments (if needed).
+
 
 ### Generators
 Calling a coroutine is done via `coroutine_call`.
@@ -118,3 +121,34 @@ int main() {
 }
 ```
 The example above will print the numbers from 0 to 9.
+
+
+## Subroutines
+When a coroutine gets to large, we can move some of it's code to a seperate function. If that function needs to use async I/O or yield then it's a subroutine.  
+To make a subroutine we simple specify a return type, then use subroutine(name, ...parameters).
+```c
+#define COROUTINE_IMPLEMENTATION
+#include "coroutine.h"
+#include <stdio.h>
+
+int subroutine(sub) {
+  yield_sleep(1000);
+  return 5;
+}
+
+coroutine(test) {
+  int a = subroutine_call(sub);
+  printf("%d\n", a);
+}
+
+int main(...) {
+  setup_coroutines();
+
+  coroutine_spawn(test);
+
+  teardown_coroutines();
+  return 0;
+}
+```
+The code in the example will only have 1 extra coroutine, and will print `5` after 1 second.  
+**A subroutines parameter list is *comma* separated. unlike coroutine which is *semicolon* separated.**
