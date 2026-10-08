@@ -29,7 +29,6 @@ struct Coroutine {
 
   void *routine_sp;
   void *caller_sp;
-
   void *userdata;
   size_t userdata_size;
 
@@ -64,6 +63,8 @@ bool CoroutineIsAlive(Coroutine *routine);
                 macro##_params, macro##_params, macro##_void, _)(__VA_ARGS__)
 
 #define coroutine(...) DISPATCH_NAME_(coroutine, __VA_ARGS__)
+#define subroutine(...) DISPATCH_NAME_(subroutine, __VA_ARGS__)
+#define subroutine_call(...) DISPATCH_NAME_(subroutine_call, __VA_ARGS__)
 #define coroutine_init(...) DISPATCH_NAME_(coroutine_init, __VA_ARGS__)
 #define coroutine_init_stack(...) DISPATCH_NAME_(coroutine_init_stack, __VA_ARGS__)
 
@@ -75,6 +76,18 @@ bool CoroutineIsAlive(Coroutine *routine);
 
 #define coroutine_void(name) \
   void name(Coroutine *routine)
+
+#define subroutine_params(name, ...) \
+  name(Coroutine *routine, __VA_ARGS__)
+
+#define subroutine_void(name) \
+  name(Coroutine *routine)
+
+#define subroutine_call_void(name) \
+  name(routine)
+
+#define subroutine_call_params(name, ...) \
+  name(routine, __VA_ARGS__)
 
 #define get_args(name) name##_params_ args = *((name##_params_ *)(routine->userdata))
 
