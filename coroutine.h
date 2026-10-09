@@ -124,17 +124,6 @@ void *make_context(void *stack_bottom, size_t stack_size, Coroutine *routine);
 // Will move %rsp into the address specified via 'to'.
 void swap_context(void **from, void *to);
 
-typedef struct CoroutineNode {
-  Coroutine *routine;
-  struct CoroutineNode *next;
-} CoroutineNode;
-
-typedef struct {
-  CoroutineNode *start;
-  CoroutineNode *end;
-  size_t length;
-} CoroutineReadyQueue;
-
 #define EVENT_QUEUE_SIZE 16
 
 typedef struct {
@@ -223,6 +212,21 @@ int CoroutineAccept(Coroutine *cr, int sockfd, struct sockaddr *addr, socklen_t 
   CoroutineAccept(routine, sockfd, addr, addrlen)
 
 int make_nonblocking(int fd);
+
+struct defer_args_ {
+  void (*defer_func)(void *);
+  void *arg;
+};
+
+void call_defer_(struct defer_args_ *defer);
+
+#define DEFER_CAT_(a, b, c) a##_##b##_##c##_
+#define DEFER_NAME_(a, b, c) DEFER_CAT_(a, b, c)
+
+#define defer(func, ptr)                                           \
+  struct defer_args_ DEFER_NAME_(defer_var, __COUNTER__, __LINE__) \
+      __attribute__((cleanup(call_defer_))) =                      \
+          {(void (*)(void *))(func), (void *)(ptr)}
 
 #endif
 
@@ -688,5 +692,9 @@ int make_nonblocking(int fd) {
     return -1;
 
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+void call_defer_(struct defer_args_ *defer) {
+  (defer->defer_func)(defer->arg);
 }
 #endif
